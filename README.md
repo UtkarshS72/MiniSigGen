@@ -72,9 +72,7 @@ Timer Interrupt → Phase Accumulator → LUT → DAC Output
 
 Frequency is controlled by changing the phase step, not the timer period.
 
-[
-f_{out} = \frac{f_{sample} \times step}{LUT_size}
-]
+Output frequency = sample rate × phase step / LUT size
 
 This allows smooth frequency changes without restarting the timer.
 
