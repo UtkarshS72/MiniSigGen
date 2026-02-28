@@ -1,6 +1,6 @@
 # `ESP32 Signal Generator`
 
-A simpleembedded waveform generator built on the ESP32-WROOM-32.
+A simple embedded waveform generator built on the ESP32-WROOM-32.
 The project was intentionally redesigned from a larger experimental version to focus on deterministic timing, hardware control, and clear architecture.
 
 The generator produces analog waveforms using the ESP32 DAC and hardware PWM and allows real-time control through physical buttons.
