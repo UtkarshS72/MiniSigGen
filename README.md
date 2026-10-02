@@ -1,7 +1,7 @@
 # `ESP32 Signal Generator`
 
 A simple embedded waveform generator built on the ESP32-WROOM-32.
-The project was intentionally redesigned from a larger experimental version to focus on deterministic timing, hardware control, and clear architecture.
+The project was intentionally redesigned from a larger experimental version to ocus on timer-driven waveform generation, hardware control, and clear architecture.
 
 The generator produces analog waveforms using the ESP32 DAC and hardware PWM and allows real-time control through physical buttons.
 
@@ -15,7 +15,7 @@ The generator produces analog waveforms using the ESP32 DAC and hardware PWM and
   * Waveform select
   * Frequency increase / decrease
   * Amplitude increase / decrease
-* Timer-driven waveform generation (DDS-style phase accumulator)
+* Timer-driven waveform generation 
 * DAC output for analog waveforms (GPIO25)
 * Hardware PWM (LEDC) for stable high-frequency square waves
 
@@ -23,58 +23,61 @@ The generator produces analog waveforms using the ESP32 DAC and hardware PWM and
 
 ## Why this project exists
 
-Many microcontroller “signal generator” projects use `delay()` loops to output samples.
-This produces unstable frequencies because execution time varies.
+Many simple microcontroller waveform generators use `delay()` loops to control
+sample timing. Execution-time variation can make this approach unsuitable when
+more predictable waveform timing is required.
 
-This implementation instead uses a hardware timer interrupt:
+This implementation instead uses a periodic `esp_timer` callback.
 
-The timer fires at a fixed sampling rate →
-each interrupt outputs exactly one sample →
-the phase accumulator determines the waveform frequency.
+The timer period is calculated from the desired waveform frequency and LUT size.
+Each callback outputs one sample from the waveform lookup table and advances
+the sample index.
 
-This makes frequency depend only on math, not CPU speed.
-
+This separates waveform timing from the main program loop and allows the
+processor to handle user input independently.
 ---
 
 ## Architecture
 
-The generator is essentially a simplified Direct Digital Synthesis (DDS) system.
+The generator uses lookup-table-based waveform synthesis.
 
 **Core components:**
 
 1. Lookup Tables (LUTs)
 
-   * Precomputed 8-bit samples for each waveform
-   * Prevents expensive math inside interrupts
+   * 256 precomputed 8-bit samples for sine, triangle and sawtooth waveforms
+   * Avoids expensive waveform calculations during output
 
-2. Hardware Timer (`esp_timer`)
+2. Periodic Timer (`esp_timer`)
 
-   * Generates a constant sample rate
-   * Drives waveform output
+   * Schedules DAC sample updates
+   * Timer period is derived from the requested waveform frequency
 
-3. Phase Accumulator
+3. Sample Index
 
-   * Controls frequency
-   * Larger phase step → higher frequency
+   * Advances through the waveform LUT on each timer callback
+   * Wraps after 256 samples
 
 4. DAC / PWM Output
 
-   * DAC → sine/triangle/sawtooth
-   * LEDC PWM → square wave
+   * ESP32 DAC → sine / triangle / sawtooth
+   * LEDC hardware PWM → square wave
 
 ```
-Timer Interrupt → Phase Accumulator → LUT → DAC Output
+Requested Frequency → Timer Period → LUT Index → DAC Output
 ```
-
----
 
 ## Frequency Control
 
-Frequency is controlled by changing the phase step, not the timer period.
+For LUT-driven waveforms, the timer callback period is calculated from the
+requested output frequency and the 256-sample waveform table.
 
-Output frequency = sample rate × phase step / LUT size
+sample rate = output frequency × LUT size
 
-This allows smooth frequency changes without restarting the timer.
+timer period = 1 / sample rate
+
+Square waves use the ESP32 LEDC hardware PWM peripheral instead of the DAC
+sampling path.
 
 ---
 
@@ -101,7 +104,7 @@ Buttons:
 
 ## How to Run
 
-1. Open `main.ino` in Arduino IDE / PlatformIO
+1. Open `main_v1.ino` in Arduino IDE / PlatformIO
 2. Select **ESP32 Dev Module**
 3. Upload to ESP32
 
@@ -111,22 +114,21 @@ The generator starts immediately on boot.
 
 ## Earlier Version
 
-An earlier experimental version with FFT spectrum visualization and WiFi interface is preserved in the:
+An earlier experimental version with ADC sampling, FFT-based spectrum analysis
+and OLED visualization is preserved in the:
 
-```
-spectrum-version
-```
+`spectrum-version`
 
 branch of this repository.
 
-The current `main` branch is a simplified implementation.
+The current `main` branch was simplified to focus on waveform generation,
+timing and hardware control.
 
 ---
 
 ## What I learned
 
-* Timer interrupts vs software delays
+* Periodic timer callbacks vs software delays
 * Deterministic embedded timing
-* Direct Digital Synthesis (DDS)
 * DAC quantization limits
 * Hardware PWM vs DAC tradeoffs
